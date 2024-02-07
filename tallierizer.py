@@ -7,7 +7,7 @@ def calcDPAIron(power, material, volumes, dpaTally, mean = None, stddev = None):
 	dpaTally: Cell tally object with iron nuclide filter scoring damage energy eV/source
 	power: float, power of source Watts
 	material: material object where tally is scored
-	volume: volume where tallly is scored
+	volume: volume where tally is scored cm3
 	if dpaTally is None:
 	mean: mean damage energy at each mesh element (binned by nuclide)
 	stdev: stdev of the same
