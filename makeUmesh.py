@@ -1,11 +1,11 @@
-from pymoab import core, types
 import cubit
 from cad_to_h5m import cad_to_h5m
 import os
 import inspect
 
-def makeUMesh(inName, outName, size):
+def makeUmesh(inName):
 	"""
+	attempts to make mesh 1 element thick
 	inName : str of .step file
 	outName : str desired name of .cub file
 	size : int suggestion for cubit
@@ -25,26 +25,25 @@ def makeUMesh(inName, outName, size):
 	    cubit_dir
 	])
 	
+	#import given step
+	cubit.cmd('import step ' + inName + ' heal')
+	
+	#set meshing scheme and mesh
+	cubit.cmd('volume 1 scheme tetmesh proximity layers on 1')
+	cubit.cmd('mesh volume 1')
+	cubit.cmd('set exodus netcdf4 off')
+	cubit.cmd('set large exodus file on')
+	
 	cwd = os.getcwd()
 
-	cubit.cmd('import step ' + inName + ' heal')
+	baseName = inName.rstrip('.step')
+	outName = baseName+'.e'
+	print('export mesh "' + cwd + '/' +outName + '"  overwrite ')
 
-	inName = inName.rstrip('.step') + '.sat'
+	cubit.cmd('export mesh "' + cwd + '/' +outName + '"  overwrite ')
 
-	cubit.cmd('export acis ' + inName + ' overwrite')
-
-
-	cad_to_h5m(
-	    files_with_tags=[
-		{
-		    'cad_filename':inName,
-		    'material_tag':'m1',
-		    'tet_mesh': 'size ' + str(size)
-		}
-	    ],
-	    h5m_filename='dagmcFromScript.h5m',
-	    cubit_path = '/filespace/e/epflug/research/Coreform-Cubit-2021.5/bin/',
-	    cubit_filename = outName
-	)
+	os.system('mbconvert ' + outName + ' ' + baseName + '.h5')
 	
+	os.remove(outName)
 
+	
