@@ -1,12 +1,16 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.colors
+import numpy as np
+import math
 
 #take 2 arrays of equal length name and dimension for each layer, make a nice picture
 
-def radialBuild(build, Title = "Radial Build", colors = None, height = 20, textSpace = 10, size = (8,4)):
+def radialBuild(build, phi, theta, Title = "Radial Build", colors = None, height = 20, textSpace = 10, size = (8,4)):
     """
-    build: dict, {"layer name":thickness}
+    build: dict formatted as for parastell
+    phi, theta; angle pair for the location you want the radial build, must be in the 
+        'phi_list' and 'theta_list' lists in the build dict
     title: string, title for plot and filename to save to
     colors: list of matplotlib color strings. if specific colors are desired for each layer they can be added here
     height: height to make the rectangles, float
@@ -14,8 +18,26 @@ def radialBuild(build, Title = "Radial Build", colors = None, height = 20, textS
     size: figure size, inches, tuple
     """
     #extract info
-    layers = list(build.keys())
-    thicknesses = list(build.values())
+    layers = list(build['radial_build'].keys())
+
+    phi_list = build['phi_list']
+    theta_list = build['theta_list']
+
+    for index, (p, t) in enumerate(zip(phi_list, theta_list)):
+        if math.isclose(p, phi, abs_tol=1.0):
+            phi_index = index
+        if math.isclose(t, theta, abs_tol=1.0):
+            theta_index = index
+
+    print(phi_index)
+    print(theta_index)
+
+    radial_build = build['radial_build']
+
+    thicknesses = []
+
+    for layer in layers:
+        thicknesses.append(radial_build[layer]['thickness_matrix'][phi_index][theta_index])
     
     #make a list of colors if none provided
     if colors is None: 
@@ -28,7 +50,7 @@ def radialBuild(build, Title = "Radial Build", colors = None, height = 20, textS
     graphicsThicknesses = []
 
     for i in range(len(thicknesses)):
-        if thicknesses[i] < 5:
+        if thicknesses[i] < 8:
             graphicsThicknesses.append(8)
         else:
             graphicsThicknesses.append(thicknesses[i]) 

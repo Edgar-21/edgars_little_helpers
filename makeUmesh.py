@@ -2,6 +2,7 @@ import cubit
 from cad_to_h5m import cad_to_h5m
 import os
 import inspect
+from pymoab import core, types
 
 def makeUmesh(inName):
 	"""
@@ -31,8 +32,6 @@ def makeUmesh(inName):
 	#set meshing scheme and mesh
 	cubit.cmd('volume 1 scheme tetmesh proximity layers on 1')
 	cubit.cmd('mesh volume 1')
-	cubit.cmd('set exodus netcdf4 off')
-	cubit.cmd('set large exodus file on')
 	
 	cwd = os.getcwd()
 
@@ -41,7 +40,7 @@ def makeUmesh(inName):
 	print('export mesh "' + cwd + '/' +outName + '"  overwrite ')
 
 	cubit.cmd('export mesh "' + cwd + '/' +outName + '"  overwrite ')
-
+	
 	os.system('mbconvert ' + outName + ' ' + baseName + '.h5')
 	
 	os.remove(outName)
