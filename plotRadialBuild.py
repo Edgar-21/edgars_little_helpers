@@ -4,7 +4,7 @@ import matplotlib.colors
 
 #take 2 arrays of equal length name and dimension for each layer, make a nice picture
 
-def radialBuild(build, Title = "Radial Build", colors = None, height = 20, textSpace = 10, size = (8,4)):
+def plotRadialBuild(build, Title = "Radial Build", colors = None, height = 20, textSpace = 10, size = (8,4)):
     """
     build: dict, {"layer name":thickness}
     title: string, title for plot and filename to save to

@@ -1,4 +1,4 @@
-from plotRadialBuildStellarator import radialBuild
+from plotRadialBuildStellarator import plotRadialBuild
 
 import numpy as np
 
@@ -48,4 +48,4 @@ build = {
     }
 }
 
-radialBuild(build, 22.5, 180, 'Example Radial Build')
+plotRadialBuild(build, 1, 3, 'Example Radial Build')
