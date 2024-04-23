@@ -1,10 +1,13 @@
 import cubit
-from cad_to_h5m import cad_to_h5m
 import os
 import inspect
-from pymoab import core, types
 
-def makeUmesh(inName):
+# if this fails to mesh, try importing the step into cubit,
+# click the hammer button under geometry, then select volumes
+# then heal -> autoheal and let that try to fix it, worked for me
+# setting reheal to true will automate this
+
+def makeUmesh(inName, reheal=False):
 	"""
 	attempts to make mesh 1 element thick
 	inName : str of .step file
@@ -25,12 +28,21 @@ def makeUmesh(inName):
 	    '-commandplugindir',
 	    cubit_dir
 	])
+
+	cubit.cmd('reset')
 	
 	#import given step
 	cubit.cmd('import step ' + inName + ' heal')
+
+	if reheal:
+		cubit.cmd('healer autoheal volume 1 rebuild')
+		cubit.cmd('compress')
+
+	cubit.cmd('set trimesher coarse on ratio 100 angle 5')
+	cubit.cmd('surface all scheme trimesh')
 	
 	#set meshing scheme and mesh
-	cubit.cmd('volume 1 scheme tetmesh proximity layers on 1')
+	cubit.cmd('volume 1 scheme tetmesh')
 	cubit.cmd('mesh volume 1')
 	
 	cwd = os.getcwd()
@@ -41,8 +53,8 @@ def makeUmesh(inName):
 
 	cubit.cmd('export mesh "' + cwd + '/' +outName + '"  overwrite ')
 	
-	os.system('mbconvert ' + outName + ' ' + baseName + '.h5')
+	os.system('mbconvert ' + outName + ' ' + baseName + '.h5m')
 	
 	os.remove(outName)
-
 	
+	cubit.cmd('reset')
