@@ -1,6 +1,9 @@
-import read_vmec
+import src.pystell.read_vmec as read_vmec
 import numpy as np
 from scipy.optimize import newton
+import concurrent.futures
+from multiprocessing import cpu_count
+import math
 
 
 def magnitude(vec_list):
@@ -12,14 +15,16 @@ def magnitude(vec_list):
     Returns:
         magnitude_list (NX1 np_array)
     """
-    magnitude_list = vec_list[:, 0]**2 + vec_list[:, 1]**2 + vec_list[:, 2]**2
+    magnitude_list = (
+        vec_list[:, 0] ** 2 + vec_list[:, 1] ** 2 + vec_list[:, 2] ** 2
+    )
     magnitude_list = np.sqrt(magnitude_list)
 
     return magnitude_list
 
 
 def dot(vec1, vec2):
-    """ Returns a list of the dot products of 2 lists of vectors
+    """Returns a list of the dot products of 2 lists of vectors
 
     Arguments:
         vec1 (NX3 np array)
@@ -28,14 +33,17 @@ def dot(vec1, vec2):
     returns:
         dot_list (NX1 np array)
     """
-    dot_list = vec1[:, 0]*vec2[:, 0]+vec1[:, 1] * \
-        vec2[:, 1]+vec1[:, 2]*vec2[:, 2]
+    dot_list = (
+        vec1[:, 0] * vec2[:, 0]
+        + vec1[:, 1] * vec2[:, 1]
+        + vec1[:, 2] * vec2[:, 2]
+    )
 
     return dot_list
 
 
 def cross(vec1, vec2):
-    """ Returns a list of the cross products of 2 lists of vectors
+    """Returns a list of the cross products of 2 lists of vectors
 
     Arguments:
         vec1 (NX3 np array)
@@ -45,9 +53,9 @@ def cross(vec1, vec2):
         cross_list (NX3 np array)
     """
 
-    i_list = vec1[:, 1]*vec2[:, 2]-vec1[:, 2]*vec2[:, 1]
-    j_list = vec1[:, 2]*vec2[:, 0]-vec1[:, 0]*vec2[:, 2]
-    k_list = vec1[:, 0]*vec2[:, 1]-vec1[:, 1]*vec2[:, 0]
+    i_list = vec1[:, 1] * vec2[:, 2] - vec1[:, 2] * vec2[:, 1]
+    j_list = vec1[:, 2] * vec2[:, 0] - vec1[:, 0] * vec2[:, 2]
+    k_list = vec1[:, 0] * vec2[:, 1] - vec1[:, 1] * vec2[:, 0]
 
     cross_list = np.array([i_list, j_list, k_list]).T
 
@@ -56,13 +64,13 @@ def cross(vec1, vec2):
 
 def get_theta_guesses(num_theta_guesses, phi_coords, coords, wall_s, vmec):
     """
-    Calculate the distances between the plasma surface and the coordinate at 
-    each theta, phi combination and keep the theta that gets the smallest 
+    Calculate the distances between the plasma surface and the coordinate at
+    each theta, phi combination and keep the theta that gets the smallest
     distance as an initial guess
 
     this might be better as a minimization routine
     """
-    theta_grid = np.linspace(0, 2*np.pi, num_theta_guesses)
+    theta_grid = np.linspace(0, 2 * np.pi, num_theta_guesses)
 
     theta_guesses = []
     distances = []
@@ -70,8 +78,8 @@ def get_theta_guesses(num_theta_guesses, phi_coords, coords, wall_s, vmec):
         least_distance = None
         kept_theta = None
         for theta in theta_grid:
-            plasma_point = np.array(vmec.vmec2xyz(wall_s, theta, phi))*100
-            distance = np.sqrt(np.sum(np.square(coord-plasma_point)))
+            plasma_point = np.array(vmec.vmec2xyz(wall_s, theta, phi)) * 100
+            distance = np.sqrt(np.sum(np.square(coord - plasma_point)))
             if least_distance is not None:
                 if distance < least_distance:
                     least_distance = distance
@@ -98,7 +106,7 @@ def residual(theta_guesses, phi_coords, coords, wall_s, vmec, boink=1e-6):
 
     Arguments:
         theta_guess (1D numpy array): guessed theta coordinates in radians
-        phi_coords (1D numpy array): phi coordinate corresponding to theta 
+        phi_coords (1D numpy array): phi coordinate corresponding to theta
         guesses coords (numpy array of XYZ): centroid of mesh element for
             which to findtheta, phi
         wall_s (float): wall_s vmec parameter for the surface to offset from
@@ -106,10 +114,10 @@ def residual(theta_guesses, phi_coords, coords, wall_s, vmec, boink=1e-6):
         boink (float): amount to peturb theta by for calculating tangent
 
     returns:
-        distances (1D numpy array): perpendicular distance each calculated 
+        distances (1D numpy array): perpendicular distance each calculated
             poloidal vector is from the corresponding centroid. If the centroid
             is found to be below the plane formed by the tangent and toroidal
-            normal then this value is artifically increased substantially to 
+            normal then this value is artifically increased substantially to
             encourage the correct one of the two roots to be found.
     """
     point_set1 = []
@@ -117,71 +125,72 @@ def residual(theta_guesses, phi_coords, coords, wall_s, vmec, boink=1e-6):
 
     for theta_guess, phi_coord in zip(theta_guesses, phi_coords):
 
-        theta_guess_boinked = theta_guess+boink
+        theta_guess_boinked = theta_guess + boink
 
         # check for numerical difficulties
         if theta_guess == theta_guess_boinked:
-            print('bad value for theta at phi, theta', phi_coord, theta_guess)
+            print("bad value for theta at phi, theta", phi_coord, theta_guess)
 
-        point_set1.append(np.array(vmec.vmec2xyz(
-            wall_s, theta_guess, phi_coord))*100)
-        point_set2.append(np.array(vmec.vmec2xyz(
-            wall_s, theta_guess_boinked, phi_coord))*100)
+        point_set1.append(
+            np.array(vmec.vmec2xyz(wall_s, theta_guess, phi_coord)) * 100
+        )
+        point_set2.append(
+            np.array(vmec.vmec2xyz(wall_s, theta_guess_boinked, phi_coord))
+            * 100
+        )
 
     point_set1 = np.array(point_set1)
     point_set2 = np.array(point_set2)
 
-    offset_vectors = coords-point_set1
+    offset_vectors = coords - point_set1
 
     phi_plane_normals = np.array(
-        [-np.sin(phi_coords),
-         np.cos(phi_coords),
-         np.zeros(len(phi_coords))]).T
+        [-np.sin(phi_coords), np.cos(phi_coords), np.zeros(len(phi_coords))]
+    ).T
 
     tangents = point_set2 - point_set1
 
     normals = cross(phi_plane_normals, tangents)
 
-    distances = magnitude(cross(offset_vectors, normals))/magnitude(normals)
+    distances = magnitude(cross(offset_vectors, normals)) / magnitude(normals)
 
     # need to also check if the point is on the right side of the plane
     # formed by tangent and phi_normal
     a = normals[:, 0]
     b = normals[:, 1]
     c = normals[:, 2]
-    d = a*point_set1[:, 0]+b*point_set1[:, 1]+c*point_set1[:, 2]
+    d = a * point_set1[:, 0] + b * point_set1[:, 1] + c * point_set1[:, 2]
 
     # so calculate first if the point is above or below the plane
 
-    orientations = a*coords[:, 0]+b*coords[:, 1]+c*coords[:, 2]-d
+    orientations = a * coords[:, 0] + b * coords[:, 1] + c * coords[:, 2] - d
 
     # then find the distance
 
-    distances_to_plane = np.abs(a*coords[:, 0]+
-                                b*coords[:, 1]+
-                                c*coords[:, 2]+d)/(
-                                np.sqrt(np.square(a)+ 
-                                        np.square(b)+ 
-                                        np.square(c)))
+    distances_to_plane = np.abs(
+        a * coords[:, 0] + b * coords[:, 1] + c * coords[:, 2] + d
+    ) / (np.sqrt(np.square(a) + np.square(b) + np.square(c)))
 
     # then if its negative add the absolute value to distances
     # if its not then add 0 to distances
 
     distances_to_plane = np.where(
-        orientations < 0, distances_to_plane, np.zeros(len(orientations)))
+        orientations < 0, distances_to_plane, np.zeros(len(orientations))
+    )
     distances += distances_to_plane
 
     return distances
 
 
 def unwind_thetas(thetas):
-    new_thetas = thetas % (2*np.pi)
+    new_thetas = thetas % (2 * np.pi)
     new_thetas = np.where(thetas < 0, new_thetas, new_thetas)
-    return new_thetas
+    return np.rad2deg(new_thetas)
 
 
-def centroids_to_theta_phi(centroids, wall_s, vmec, num_theta_guesses,
-                           max_iter):
+def centroids_to_theta_phi(
+    centroids, wall_s, vmec, num_theta_guesses, max_iter
+):
     """
     get the phi, theta coordinate pairs that, when offseting in the poloidal
     normal from the surface described by wall_s, results in the normal
@@ -190,11 +199,11 @@ def centroids_to_theta_phi(centroids, wall_s, vmec, num_theta_guesses,
     if this is failing to converge, hopefully just increasing max_iter will
     help. I have used 5000 in the past. The speed may also be enhanced by
     switching this to elementwise operations, since different elements take
-    different numbers of iterations to converge, sometimes hundreds more 
+    different numbers of iterations to converge, sometimes hundreds more
     iterations.
 
     Arguments:
-        centroids (np array of x,y,z): points at which to perform the above 
+        centroids (np array of x,y,z): points at which to perform the above
             root finding
         wall_s (float): vmec parameter for the surface of interest
         vmec (read_vmec object): representation of plasma equilibrium
@@ -208,11 +217,50 @@ def centroids_to_theta_phi(centroids, wall_s, vmec, num_theta_guesses,
     phi_coords = np.arctan2(centroids[:, 1], centroids[:, 0])
 
     theta_guesses = get_theta_guesses(
-        num_theta_guesses, phi_coords, centroids, wall_s, vmec)
+        num_theta_guesses, phi_coords, centroids, wall_s, vmec
+    )
 
-    theta_coords = newton(residual, theta_guesses, args=(
-        phi_coords, centroids, wall_s, vmec), maxiter=max_iter)
+    theta_coords = newton(
+        residual,
+        theta_guesses,
+        args=(phi_coords, centroids, wall_s, vmec),
+        maxiter=max_iter,
+    )
 
     theta_coords = unwind_thetas(theta_coords)
 
-    return phi_coords, theta_coords
+    theta_coords = np.where(
+        theta_coords > 180, theta_coords - 360, theta_coords
+    )
+
+    return np.rad2deg(phi_coords), theta_coords
+
+
+def centroids_to_theta_phi_helper(data):
+    vmec = read_vmec.VMECData(data[2])
+    phi_coords, theta_coords = centroids_to_theta_phi(
+        data[0], data[1], vmec, data[3], data[4]
+    )
+    return (phi_coords, theta_coords)
+
+
+def multithread_centroids_to_theta_phi(
+    centroids, wall_s, vmec_path, num_theta_guesses, max_iter, num_threads=1
+):
+
+    chunk_size = math.ceil(len(centroids) / num_threads)
+    chunks = []
+    for i in range(num_threads):
+        chunk = np.array(centroids[i * chunk_size : (i + 1) * chunk_size])
+        chunks.append((chunk, wall_s, vmec_path, num_theta_guesses, max_iter))
+
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=num_threads
+    ) as executor:
+
+        results = list(executor.map(centroids_to_theta_phi_helper, chunks))
+        phi_coords = [phi_coord for chunk in results for phi_coord in chunk[0]]
+        theta_coords = [
+            theta_coord for chunk in results for theta_coord in chunk[1]
+        ]
+    return np.array(phi_coords), np.array(theta_coords)
