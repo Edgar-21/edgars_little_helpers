@@ -1,8 +1,7 @@
-import src.pystell.read_vmec as read_vmec
+import pystell.read_vmec as read_vmec
 import numpy as np
 from scipy.optimize import newton
 import concurrent.futures
-from multiprocessing import cpu_count
 import math
 
 
@@ -199,8 +198,8 @@ def centroids_to_theta_phi(
     if this is failing to converge, hopefully just increasing max_iter will
     help. I have used 5000 in the past. The speed may also be enhanced by
     switching this to elementwise operations, since different elements take
-    different numbers of iterations to converge, sometimes hundreds more
-    iterations.
+    different numbers of iterations to converge, sometimes hundreds of times
+    more iterations.
 
     Arguments:
         centroids (np array of x,y,z): points at which to perform the above
@@ -228,10 +227,6 @@ def centroids_to_theta_phi(
     )
 
     theta_coords = unwind_thetas(theta_coords)
-
-    theta_coords = np.where(
-        theta_coords > 180, theta_coords - 360, theta_coords
-    )
 
     return np.rad2deg(phi_coords), theta_coords
 
